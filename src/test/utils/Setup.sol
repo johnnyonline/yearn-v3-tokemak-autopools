@@ -4,8 +4,8 @@ pragma solidity ^0.8.18;
 import "forge-std/console2.sol";
 import {ExtendedTest} from "./ExtendedTest.sol";
 
-import {Strategy, ERC20} from "../../Strategy.sol";
-import {StrategyFactory} from "../../StrategyFactory.sol";
+import {TokemakStrategy, ERC20} from "../../TokemakStrategy.sol";
+import {TokemakStrategyFactory} from "../../TokemakStrategyFactory.sol";
 import {IStrategyInterface} from "../../interfaces/IStrategyInterface.sol";
 
 // Inherit the events so they can be checked if desired.
@@ -21,10 +21,11 @@ interface IFactory {
 
 contract Setup is ExtendedTest, IEvents {
     // Contract instances that we will use repeatedly.
+    address public autoPool = 0xF90bB2BAa90B457A35c37c5A96De2720CE367281; // autopoolETH
     ERC20 public asset;
     IStrategyInterface public strategy;
 
-    StrategyFactory public strategyFactory;
+    TokemakStrategyFactory public strategyFactory;
 
     mapping(string => address) public tokenAddrs;
 
@@ -53,12 +54,12 @@ contract Setup is ExtendedTest, IEvents {
         _setTokenAddrs();
 
         // Set asset
-        asset = ERC20(tokenAddrs["DAI"]);
+        asset = ERC20(tokenAddrs["WETH"]);
 
         // Set decimals
         decimals = asset.decimals();
 
-        strategyFactory = new StrategyFactory(
+        strategyFactory = new TokemakStrategyFactory(
             management,
             performanceFeeRecipient,
             keeper,
@@ -81,10 +82,12 @@ contract Setup is ExtendedTest, IEvents {
 
     function setUpStrategy() public returns (address) {
         // we save the strategy as a IStrategyInterface to give it the needed interface
+        vm.prank(management);
         IStrategyInterface _strategy = IStrategyInterface(
             address(
                 strategyFactory.newStrategy(
                     address(asset),
+                    autoPool,
                     "Tokenized Strategy"
                 )
             )
