@@ -19,9 +19,26 @@ interface IFactory {
     function set_protocol_fee_recipient(address) external;
 }
 
+interface IOracle {
+    enum Denomination {
+        ETH,
+        USD
+    }
+    struct OracleInfo {
+        address oracle;
+        uint32 pricingTimeout;
+        Denomination denomination;
+        uint8 decimals;
+    }
+    function getOracleInfo(address token) external view returns (OracleInfo memory);
+    function removeOracleRegistration(address token) external returns (address oracleBeforeDeletion);
+    function registerOracle(address token, address oracle, Denomination denomination, uint32 pricingTimeout) external;
+}
+
 contract Setup is ExtendedTest, IEvents {
     // Contract instances that we will use repeatedly.
-    address public autoPool = 0xF90bB2BAa90B457A35c37c5A96De2720CE367281; // autopoolETH
+    address public rewarder = 0x60882D6f70857606Cdd37729ccCe882015d1755E; // autopoolETH Rewarder
+    address public autoPool = 0x0A2b94F6871c1D7A32Fe58E1ab5e6deA2f114E56; // autopoolETH
     ERC20 public asset;
     IStrategyInterface public strategy;
 
@@ -78,20 +95,38 @@ contract Setup is ExtendedTest, IEvents {
         vm.label(management, "management");
         vm.label(address(strategy), "strategy");
         vm.label(performanceFeeRecipient, "performanceFeeRecipient");
+
+        _updateOracleInfo();
+    }
+
+    function _updateOracleInfo() internal {
+        address steth = 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84;
+        // IOracle(0x701F115a4d58a44d9e4e437d136DD9fA7b1B6C3f).getOracleInfo(steth);
+        IOracle.OracleInfo memory info = IOracle(0x701F115a4d58a44d9e4e437d136DD9fA7b1B6C3f).getOracleInfo(steth);
+        console2.log("oracle: %s", info.oracle);
+        console2.log("timeout: %s", info.pricingTimeout);
+
+        // removeOracleRegistration
+        vm.prank(0x8b4334d4812C530574Bd4F2763FcD22dE94A969B);
+        address _asd = IOracle(0x701F115a4d58a44d9e4e437d136DD9fA7b1B6C3f).removeOracleRegistration(steth);
+
+        console2.log("oracle before deletion: %s", _asd);
+
+        // registerOracle
+        vm.prank(0x8b4334d4812C530574Bd4F2763FcD22dE94A969B);
+        IOracle(0x701F115a4d58a44d9e4e437d136DD9fA7b1B6C3f).registerOracle(steth, info.oracle, info.denomination, 5 weeks);
+
+        // strategy.profitMaxUnlockTime()
+        console2.log("profitMaxUnlockTime: %s", strategy.profitMaxUnlockTime());
+
+        // if (updatedAt == 0 || updatedAt > timestamp || updatedAt < timestamp - tokenPricingTimeout) {
     }
 
     function setUpStrategy() public returns (address) {
         // we save the strategy as a IStrategyInterface to give it the needed interface
         vm.prank(management);
-        IStrategyInterface _strategy = IStrategyInterface(
-            address(
-                strategyFactory.newStrategy(
-                    address(asset),
-                    autoPool,
-                    "Tokenized Strategy"
-                )
-            )
-        );
+        IStrategyInterface _strategy =
+            IStrategyInterface(address(strategyFactory.newStrategy(address(asset), autoPool, rewarder, "Tokenized Strategy")));
 
         vm.prank(management);
         _strategy.acceptManagement();
@@ -99,11 +134,7 @@ contract Setup is ExtendedTest, IEvents {
         return address(_strategy);
     }
 
-    function depositIntoStrategy(
-        IStrategyInterface _strategy,
-        address _user,
-        uint256 _amount
-    ) public {
+    function depositIntoStrategy(IStrategyInterface _strategy, address _user, uint256 _amount) public {
         vm.prank(_user);
         asset.approve(address(_strategy), _amount);
 
@@ -111,11 +142,7 @@ contract Setup is ExtendedTest, IEvents {
         _strategy.deposit(_amount, _user);
     }
 
-    function mintAndDepositIntoStrategy(
-        IStrategyInterface _strategy,
-        address _user,
-        uint256 _amount
-    ) public {
+    function mintAndDepositIntoStrategy(IStrategyInterface _strategy, address _user, uint256 _amount) public {
         airdrop(asset, _user, _amount);
         depositIntoStrategy(_strategy, _user, _amount);
     }
@@ -128,9 +155,7 @@ contract Setup is ExtendedTest, IEvents {
         uint256 _totalIdle
     ) public {
         uint256 _assets = _strategy.totalAssets();
-        uint256 _balance = ERC20(_strategy.asset()).balanceOf(
-            address(_strategy)
-        );
+        uint256 _balance = ERC20(_strategy.asset()).balanceOf(address(_strategy));
         uint256 _idle = _balance > _assets ? _assets : _balance;
         uint256 _debt = _assets - _idle;
         assertEq(_assets, _totalAssets, "!totalAssets");

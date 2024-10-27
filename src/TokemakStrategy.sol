@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.18;
 
-import {BaseStrategy, ERC20} from "@tokenized-strategy/BaseStrategy.sol";
-
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
+
+import {BaseStrategy, ERC20} from "@tokenized-strategy/BaseStrategy.sol";
+// import {BaseHealthCheck, ERC20} from "@periphery/Bases/HealthCheck/BaseHealthCheck.sol";
+import {TradeFactorySwapper} from "@periphery/swappers/TradeFactorySwapper.sol";
+
+import {IRewarder} from "./interfaces/tokemak/IRewarder.sol";
 
 /**
  * The `TokenizedStrategy` variable can be used to retrieve the strategies
@@ -20,20 +24,52 @@ import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
 // NOTE: To implement permissioned functions you can use the onlyManagement, onlyEmergencyAuthorized and onlyKeepers modifiers
 
-contract TokemakStrategy is BaseStrategy {
+contract TokemakStrategy is BaseStrategy, TradeFactorySwapper {
 
     using SafeERC20 for ERC20;
 
     IERC4626 public immutable autoPool;
 
+    IRewarder public immutable rewarder;
+
     constructor(
         address _asset,
         address _autoPool,
+        address _rewarder,
         string memory _name
     ) BaseStrategy(_asset, _name) {
         autoPool = IERC4626(_autoPool);
+        rewarder = IRewarder(_rewarder);
 
         ERC20(_asset).forceApprove(_autoPool, type(uint256).max);
+        ERC20(_autoPool).forceApprove(_rewarder, type(uint256).max);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        MANAGEMENT FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    function setTradeFactory(address _tradeFactory) external onlyManagement {
+        _setTradeFactory(_tradeFactory, address(asset));
+    }
+
+    function addToken(
+        address _from,
+        address _to
+    ) external onlyManagement {
+        require(_from != address(asset), "!asset");
+        _addToken(_from, _to);
+    }
+
+    function removeToken(
+        address _from,
+        address _to
+    ) external onlyManagement {
+        _removeToken(_from, _to);
+    }
+
+    function claimRewards() external override onlyKeepers {
+        _claimRewards();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -52,10 +88,7 @@ contract TokemakStrategy is BaseStrategy {
      * to deposit in the yield source.
      */
     function _deployFunds(uint256 _amount) internal override {
-        autoPool.deposit(
-            _amount,
-            address(this) // receiver
-        ); // @todo - add staking
+        rewarder.stake(address(this), autoPool.deposit(_amount, address(this)));
     }
 
     /**
@@ -80,11 +113,9 @@ contract TokemakStrategy is BaseStrategy {
      * @param _amount, The amount of 'asset' to be freed.
      */
     function _freeFunds(uint256 _amount) internal override {
-        autoPool.redeem(
-            _amount,
-            address(this), // receiver
-            address(this) // owner
-        );
+        uint256 _shares = autoPool.convertToShares(_amount);
+        rewarder.withdraw(address(this), _shares, false);
+        autoPool.redeem(_shares, address(this), address(this));
     }
 
     /**
@@ -109,15 +140,15 @@ contract TokemakStrategy is BaseStrategy {
      * @return _totalAssets A trusted and accurate account for the total
      * amount of 'asset' the strategy currently holds including idle funds.
      */
-    function _harvestAndReport()
-        internal
-        override
-        returns (uint256 _totalAssets)
-    {
-
+    function _harvestAndReport() internal override returns (uint256 _totalAssets) {
         // @todo - claim rewards etc
+        // @todo - check if not paused
 
         _totalAssets = _redeemableForShares() + asset.balanceOf(address(this));
+    }
+
+    function _claimRewards() internal override {
+        // @todo - claim rewards
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -142,9 +173,7 @@ contract TokemakStrategy is BaseStrategy {
      * @param . The address that is withdrawing from the strategy.
      * @return . The available amount that can be withdrawn in terms of `asset`
      */
-    function availableWithdrawLimit(
-        address /*_owner*/
-    ) public view override returns (uint256) {
+    function availableWithdrawLimit(address /*_owner*/ ) public view override returns (uint256) {
         // return asset.balanceOf(address(this)) + autoPool.maxWithdraw(address(this));
         return asset.balanceOf(address(this)) + _redeemableForShares();
     }
@@ -170,10 +199,8 @@ contract TokemakStrategy is BaseStrategy {
      * @param . The address that is depositing into the strategy.
      * @return . The available amount the `_owner` can deposit in terms of `asset`
      *
-    */
-    function availableDepositLimit(
-        address _owner
-    ) public view override returns (uint256) {
+     */
+    function availableDepositLimit(address _owner) public view override returns (uint256) {
         return autoPool.maxDeposit(_owner);
     }
 
@@ -198,8 +225,8 @@ contract TokemakStrategy is BaseStrategy {
      *
      * @param _totalIdle The current amount of idle funds that are available to deploy.
      *
-    function _tend(uint256 _totalIdle) internal override {}
-    */
+     * function _tend(uint256 _totalIdle) internal override {}
+     */
 
     /**
      * @dev Optional trigger to override if tend() will be used by the strategy.
@@ -207,8 +234,8 @@ contract TokemakStrategy is BaseStrategy {
      *
      * @return . Should return true if tend() should be called by keeper or false if not.
      *
-    function _tendTrigger() internal view override returns (bool) {}
-    */
+     * function _tendTrigger() internal view override returns (bool) {}
+     */
 
     /**
      * @dev Optional function for a strategist to override that will
@@ -231,14 +258,9 @@ contract TokemakStrategy is BaseStrategy {
      *
      * @param _amount The amount of asset to attempt to free.
      *
-    */
+     */
     function _emergencyWithdraw(uint256 _amount) internal override {
-        _freeFunds(
-            Math.min(
-                _amount,
-                _redeemableForShares()
-            )
-        );
+        _freeFunds(Math.min(_amount, _redeemableForShares()));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -247,6 +269,11 @@ contract TokemakStrategy is BaseStrategy {
 
     function _redeemableForShares() private view returns (uint256) {
         // return autoPool.previewRedeem(autoPool.balanceOf(address(this)));
-        return autoPool.convertToAssets(autoPool.balanceOf(address(this)));
+        return autoPool.convertToAssets(rewarder.balanceOf(address(this)));
+        // rewarder.balanceOf
+
+        // (bool success,) = address(this).staticcall(abi.encodeWithSignature("foo()"));
+        //     require(success, "Contract call failed");
+        //     }
     }
 }

@@ -20,12 +20,7 @@ contract TokemakStrategyFactory {
     /// @notice Track the deployments. asset => pool => strategy
     mapping(address => address) public deployments;
 
-    constructor(
-        address _management,
-        address _performanceFeeRecipient,
-        address _keeper,
-        address _emergencyAdmin
-    ) {
+    constructor(address _management, address _performanceFeeRecipient, address _keeper, address _emergencyAdmin) {
         management = _management;
         performanceFeeRecipient = _performanceFeeRecipient;
         keeper = _keeper;
@@ -40,21 +35,27 @@ contract TokemakStrategyFactory {
     /**
      * @notice Deploy a new Strategy.
      * @param _asset The underlying asset for the strategy to use.
-     * @param _asset The Tokemak auto pool address.
+     * @param _autoPool The Tokemak auto pool address.
+     * @param _rewarder The rewarder address where we stake the autoPool receipt tokens.
      * @return . The address of the new strategy.
      */
     function newStrategy(
         address _asset,
         address _autoPool,
+        address _rewarder,
         string calldata _name
-    ) external onlyManagement returns (address) {
+    )
+        external
+        onlyManagement
+        returns (address)
+    {
         // @todo - sanity check asset
         // @todo - sanity check autopool
         // @todo - sanity check name
 
         // tokenized strategies available setters.
         IStrategyInterface _newStrategy = IStrategyInterface(
-            address(new TokemakStrategy(_asset, _autoPool, _name))
+            address(new TokemakStrategy(_asset, _autoPool, _rewarder, _name))
         );
 
         _newStrategy.setPerformanceFeeRecipient(performanceFeeRecipient);
@@ -71,20 +72,14 @@ contract TokemakStrategyFactory {
         return address(_newStrategy);
     }
 
-    function setAddresses(
-        address _management,
-        address _performanceFeeRecipient,
-        address _keeper
-    ) external {
+    function setAddresses(address _management, address _performanceFeeRecipient, address _keeper) external {
         require(msg.sender == management, "!management");
         management = _management;
         performanceFeeRecipient = _performanceFeeRecipient;
         keeper = _keeper;
     }
 
-    function isDeployedStrategy(
-        address _strategy
-    ) external view returns (bool) {
+    function isDeployedStrategy(address _strategy) external view returns (bool) {
         address _asset = IStrategyInterface(_strategy).asset();
         return deployments[_asset] == _strategy;
     }
