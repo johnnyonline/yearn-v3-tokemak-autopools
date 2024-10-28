@@ -96,30 +96,79 @@ contract Setup is ExtendedTest, IEvents {
         vm.label(address(strategy), "strategy");
         vm.label(performanceFeeRecipient, "performanceFeeRecipient");
 
+        // tests fail when the oracle is called because of the time delay. we extend that time delay here
         _updateOracleInfo();
     }
 
     function _updateOracleInfo() internal {
-        address steth = 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84;
-        // IOracle(0x701F115a4d58a44d9e4e437d136DD9fA7b1B6C3f).getOracleInfo(steth);
-        IOracle.OracleInfo memory info = IOracle(0x701F115a4d58a44d9e4e437d136DD9fA7b1B6C3f).getOracleInfo(steth);
-        console2.log("oracle: %s", info.oracle);
-        console2.log("timeout: %s", info.pricingTimeout);
 
-        // removeOracleRegistration
-        vm.prank(0x8b4334d4812C530574Bd4F2763FcD22dE94A969B);
-        address _asd = IOracle(0x701F115a4d58a44d9e4e437d136DD9fA7b1B6C3f).removeOracleRegistration(steth);
+        address oracleDaddy = 0x8b4334d4812C530574Bd4F2763FcD22dE94A969B;
+        uint32 pricingTimeout = 5 weeks;
 
-        console2.log("oracle before deletion: %s", _asd);
+        // steth
+        {
+            IOracle oracle = IOracle(0x701F115a4d58a44d9e4e437d136DD9fA7b1B6C3f);
+            address asset = 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84;
+            IOracle.OracleInfo memory info = oracle.getOracleInfo(asset);
 
-        // registerOracle
-        vm.prank(0x8b4334d4812C530574Bd4F2763FcD22dE94A969B);
-        IOracle(0x701F115a4d58a44d9e4e437d136DD9fA7b1B6C3f).registerOracle(steth, info.oracle, info.denomination, 5 weeks);
+            vm.prank(oracleDaddy);
+            oracle.removeOracleRegistration(asset);
 
-        // strategy.profitMaxUnlockTime()
-        console2.log("profitMaxUnlockTime: %s", strategy.profitMaxUnlockTime());
+            vm.prank(oracleDaddy);
+            oracle.registerOracle(asset, info.oracle, info.denomination, pricingTimeout);
+        }
 
-        // if (updatedAt == 0 || updatedAt > timestamp || updatedAt < timestamp - tokenPricingTimeout) {
+        // ethx
+        {
+            IOracle oracle = IOracle(0xe1aDb6967e1dBD5332d499dFA2f42377d1DA5913);
+            address asset = 0xA35b1B31Ce002FBF2058D22F30f95D405200A15b;
+            IOracle.OracleInfo memory info = oracle.getOracleInfo(asset);
+
+            vm.prank(oracleDaddy);
+            oracle.removeOracleRegistration(asset);
+
+            vm.prank(oracleDaddy);
+            oracle.registerOracle(asset, info.oracle, info.denomination, pricingTimeout);
+        }
+
+        // reth
+        {
+            IOracle oracle = IOracle(0x701F115a4d58a44d9e4e437d136DD9fA7b1B6C3f);
+            address asset = 0xae78736Cd615f374D3085123A210448E74Fc6393;
+            IOracle.OracleInfo memory info = oracle.getOracleInfo(asset);
+
+            vm.prank(oracleDaddy);
+            oracle.removeOracleRegistration(asset);
+
+            vm.prank(oracleDaddy);
+            oracle.registerOracle(asset, info.oracle, info.denomination, pricingTimeout);
+        }
+
+        // oseth
+        {
+            IOracle oracle = IOracle(0xe1aDb6967e1dBD5332d499dFA2f42377d1DA5913);
+            address asset = 0xf1C9acDc66974dFB6dEcB12aA385b9cD01190E38;
+            IOracle.OracleInfo memory info = oracle.getOracleInfo(asset);
+
+            vm.prank(oracleDaddy);
+            oracle.removeOracleRegistration(asset);
+
+            vm.prank(oracleDaddy);
+            oracle.registerOracle(asset, info.oracle, info.denomination, pricingTimeout);
+        }
+
+        // apxeth
+        {
+            IOracle oracle = IOracle(0xe1aDb6967e1dBD5332d499dFA2f42377d1DA5913);
+            address asset = 0x9Ba021B0a9b958B5E75cE9f6dff97C7eE52cb3E6;
+            IOracle.OracleInfo memory info = oracle.getOracleInfo(asset);
+
+            vm.prank(oracleDaddy);
+            oracle.removeOracleRegistration(asset);
+
+            vm.prank(oracleDaddy);
+            oracle.registerOracle(asset, info.oracle, info.denomination, pricingTimeout);
+        }
     }
 
     function setUpStrategy() public returns (address) {

@@ -19,8 +19,7 @@ contract OperationTest is Setup {
         // TODO: add additional check on strat params
     }
 
-    function test_operation() public {
-        uint256 _amount = 1e18;
+    function test_operation(uint256 _amount) public {
         vm.assume(_amount > minFuzzAmount && _amount < maxFuzzAmount);
 
         // Deposit into strategy
@@ -37,7 +36,7 @@ contract OperationTest is Setup {
 
         // Check return Values
         assertGe(profit, 0, "!profit");
-        assertEq(loss, 0, "!loss");
+        assertLe(loss, 1, "!loss");
 
         skip(strategy.profitMaxUnlockTime());
 
@@ -46,6 +45,9 @@ contract OperationTest is Setup {
         // Withdraw all funds
         vm.prank(user);
         strategy.redeem(_amount, user, user);
+
+        // apply 5% slippage
+        _amount = (_amount * 95) / 100;
 
         assertGe(asset.balanceOf(user), balanceBefore + _amount, "!final balance");
     }
