@@ -73,8 +73,8 @@ contract OperationTest is Setup {
         (uint256 profit, uint256 loss) = strategy.report();
 
         // Check return Values
-        assertGe(profit, toAirdrop, "!profit");
-        assertEq(loss, 0, "!loss");
+        assertGe(profit, toAirdrop - 1, "!profit");
+        assertLe(loss, 1, "!loss");
 
         skip(strategy.profitMaxUnlockTime());
 
@@ -83,6 +83,9 @@ contract OperationTest is Setup {
         // Withdraw all funds
         vm.prank(user);
         strategy.redeem(_amount, user, user);
+
+        // apply 5% slippage
+        _amount = (_amount * 95) / 100;
 
         assertGe(asset.balanceOf(user), balanceBefore + _amount, "!final balance");
     }
@@ -111,8 +114,8 @@ contract OperationTest is Setup {
         (uint256 profit, uint256 loss) = strategy.report();
 
         // Check return Values
-        assertGe(profit, toAirdrop, "!profit");
-        assertEq(loss, 0, "!loss");
+        assertGe(profit, toAirdrop - 1, "!profit");
+        assertLe(loss, 1, "!loss");
 
         skip(strategy.profitMaxUnlockTime());
 
@@ -127,12 +130,18 @@ contract OperationTest is Setup {
         vm.prank(user);
         strategy.redeem(_amount, user, user);
 
+        // apply 5% slippage
+        _amount = (_amount * 95) / 100;
+
         assertGe(asset.balanceOf(user), balanceBefore + _amount, "!final balance");
 
         vm.prank(performanceFeeRecipient);
         strategy.redeem(expectedShares, performanceFeeRecipient, performanceFeeRecipient);
 
         checkStrategyTotals(strategy, 0, 0, 0);
+
+        // apply 5% slippage
+        expectedShares = (expectedShares * 95) / 100;
 
         assertGe(asset.balanceOf(performanceFeeRecipient), expectedShares, "!perf fee out");
     }

@@ -26,7 +26,14 @@ import {IRewarder} from "./interfaces/tokemak/IRewarder.sol";
 
 contract TokemakStrategy is BaseStrategy, TradeFactorySwapper {
 
+    event SlippageAdjusted(uint256 _slippage);
+
     using SafeERC20 for ERC20;
+
+    uint256 public slippage = 5000; // 0.5%
+
+    uint256 public constant MAX_SLIPPAGE = 50000; // 5%
+    uint256 public constant SLIPPAGE_PRECISION = 100000;
 
     IERC4626 public immutable autoPool;
 
@@ -48,6 +55,12 @@ contract TokemakStrategy is BaseStrategy, TradeFactorySwapper {
     /*//////////////////////////////////////////////////////////////
                         MANAGEMENT FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    function adjustSlippage(uint256 _slippage) external onlyManagement {
+        require(_slippage <= MAX_SLIPPAGE, "!max");
+        slippage = _slippage;
+        emit SlippageAdjusted(_slippage);
+    }
 
     function setTradeFactory(address _tradeFactory) external onlyManagement {
         _setTradeFactory(_tradeFactory, address(asset));
@@ -88,7 +101,10 @@ contract TokemakStrategy is BaseStrategy, TradeFactorySwapper {
      * to deposit in the yield source.
      */
     function _deployFunds(uint256 _amount) internal override {
-        rewarder.stake(address(this), autoPool.deposit(_amount, address(this)));
+        rewarder.stake(
+            address(this),
+            autoPool.deposit(_amount, address(this))
+        ); // @todo - consider not deploying anything here, only in harvest
     }
 
     /**
@@ -114,6 +130,7 @@ contract TokemakStrategy is BaseStrategy, TradeFactorySwapper {
      */
     function _freeFunds(uint256 _amount) internal override {
         uint256 _shares = autoPool.convertToShares(_amount);
+        // uint256 _shares = autoPool.convertToShares(Math.min(_amount, _redeemableForShares()));
         rewarder.withdraw(address(this), _shares, false);
         autoPool.redeem(_shares, address(this), address(this));
     }
@@ -175,7 +192,9 @@ contract TokemakStrategy is BaseStrategy, TradeFactorySwapper {
      */
     function availableWithdrawLimit(address /*_owner*/ ) public view override returns (uint256) {
         // return asset.balanceOf(address(this)) + autoPool.maxWithdraw(address(this));
+        // @todo - add slipage
         return asset.balanceOf(address(this)) + _redeemableForShares();
+        // return asset.balanceOf(address(this)) + _applySlippage(_redeemableForShares());
     }
 
     /**
@@ -201,7 +220,7 @@ contract TokemakStrategy is BaseStrategy, TradeFactorySwapper {
      *
      */
     function availableDepositLimit(address _owner) public view override returns (uint256) {
-        return autoPool.maxDeposit(_owner);
+        return autoPool.maxDeposit(_owner); // @todo - fix
     }
 
     /**
@@ -260,7 +279,12 @@ contract TokemakStrategy is BaseStrategy, TradeFactorySwapper {
      *
      */
     function _emergencyWithdraw(uint256 _amount) internal override {
-        _freeFunds(Math.min(_amount, _redeemableForShares()));
+        _freeFunds(
+            Math.min(
+                _amount,
+                _redeemableForShares()
+            )
+        );
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -268,12 +292,10 @@ contract TokemakStrategy is BaseStrategy, TradeFactorySwapper {
     //////////////////////////////////////////////////////////////*/
 
     function _redeemableForShares() private view returns (uint256) {
-        // return autoPool.previewRedeem(autoPool.balanceOf(address(this)));
         return autoPool.convertToAssets(rewarder.balanceOf(address(this)));
-        // rewarder.balanceOf
+    }
 
-        // (bool success,) = address(this).staticcall(abi.encodeWithSignature("foo()"));
-        //     require(success, "Contract call failed");
-        //     }
+    function _applySlippage(uint256 _amount) private view returns (uint256) {
+        return (_amount * (SLIPPAGE_PRECISION - slippage)) / SLIPPAGE_PRECISION;
     }
 }
