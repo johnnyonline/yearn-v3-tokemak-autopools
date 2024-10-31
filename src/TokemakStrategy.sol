@@ -221,6 +221,7 @@ contract TokemakStrategy is BaseStrategy, TradeFactorySwapper {
      */
     function availableDepositLimit(address _owner) public view override returns (uint256) {
         return autoPool.maxDeposit(_owner); // @todo - fix
+        // @todo - no limits (it does check if valuations are stale though) -- can not override this
     }
 
     /**
