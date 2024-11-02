@@ -26,18 +26,13 @@ import {IRewarder} from "./interfaces/tokemak/IRewarder.sol";
 
 contract TokemakStrategy is BaseStrategy, TradeFactorySwapper {
 
-    event SlippageAdjusted(uint256 _slippage);
-
     using SafeERC20 for ERC20;
-
-    uint256 public slippage = 5000; // 0.5%
-
-    uint256 public constant MAX_SLIPPAGE = 50000; // 5%
-    uint256 public constant SLIPPAGE_PRECISION = 100000;
 
     IERC4626 public immutable autoPool;
 
     IRewarder public immutable rewarder;
+
+    uint256 private constant DUST_THRESHOLD = 0.01 ether;
 
     constructor(
         address _asset,
@@ -55,12 +50,6 @@ contract TokemakStrategy is BaseStrategy, TradeFactorySwapper {
     /*//////////////////////////////////////////////////////////////
                         MANAGEMENT FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-
-    function adjustSlippage(uint256 _slippage) external onlyManagement {
-        require(_slippage <= MAX_SLIPPAGE, "!max");
-        slippage = _slippage;
-        emit SlippageAdjusted(_slippage);
-    }
 
     function setTradeFactory(address _tradeFactory) external onlyManagement {
         _setTradeFactory(_tradeFactory, address(asset));
@@ -100,12 +89,7 @@ contract TokemakStrategy is BaseStrategy, TradeFactorySwapper {
      * @param _amount The amount of 'asset' that the strategy can attempt
      * to deposit in the yield source.
      */
-    function _deployFunds(uint256 _amount) internal override {
-        rewarder.stake(
-            address(this),
-            autoPool.deposit(_amount, address(this))
-        ); // @todo - consider not deploying anything here, only in harvest
-    }
+    function _deployFunds(uint256 _amount) internal override {}
 
     /**
      * @dev Should attempt to free the '_amount' of 'asset'.
@@ -129,10 +113,14 @@ contract TokemakStrategy is BaseStrategy, TradeFactorySwapper {
      * @param _amount, The amount of 'asset' to be freed.
      */
     function _freeFunds(uint256 _amount) internal override {
-        uint256 _shares = autoPool.convertToShares(_amount);
-        // uint256 _shares = autoPool.convertToShares(Math.min(_amount, _redeemableForShares()));
-        rewarder.withdraw(address(this), _shares, false);
-        autoPool.redeem(_shares, address(this), address(this));
+        uint256 _shares = Math.min(
+            autoPool.convertToShares(_amount),
+            rewarder.balanceOf(address(this))
+        );
+        if (_shares > 0) {
+            rewarder.withdraw(address(this), _shares, false);
+            autoPool.redeem(_shares, address(this), address(this));
+        }
     }
 
     /**
@@ -161,7 +149,15 @@ contract TokemakStrategy is BaseStrategy, TradeFactorySwapper {
         // @todo - claim rewards etc
         // @todo - check if not paused
 
-        _totalAssets = _redeemableForShares() + asset.balanceOf(address(this));
+        uint256 _amount = asset.balanceOf(address(this));
+        if (_amount > DUST_THRESHOLD) {
+            rewarder.stake(
+                address(this),
+                autoPool.deposit(_amount, address(this))
+            );
+        }
+
+        _totalAssets = asset.balanceOf(address(this)) + _redeemableForShares();
     }
 
     function _claimRewards() internal override {
@@ -191,10 +187,7 @@ contract TokemakStrategy is BaseStrategy, TradeFactorySwapper {
      * @return . The available amount that can be withdrawn in terms of `asset`
      */
     function availableWithdrawLimit(address /*_owner*/ ) public view override returns (uint256) {
-        // return asset.balanceOf(address(this)) + autoPool.maxWithdraw(address(this));
-        // @todo - add slipage
         return asset.balanceOf(address(this)) + _redeemableForShares();
-        // return asset.balanceOf(address(this)) + _applySlippage(_redeemableForShares());
     }
 
     /**
@@ -218,11 +211,16 @@ contract TokemakStrategy is BaseStrategy, TradeFactorySwapper {
      * @param . The address that is depositing into the strategy.
      * @return . The available amount the `_owner` can deposit in terms of `asset`
      *
-     */
-    function availableDepositLimit(address _owner) public view override returns (uint256) {
-        return autoPool.maxDeposit(_owner); // @todo - fix
-        // @todo - no limits (it does check if valuations are stale though) -- can not override this
+    function availableDepositLimit(
+        address _owner
+    ) public view override returns (uint256) {
+        TODO: If desired Implement deposit limit logic and any needed state variables .
+        
+        EX:    
+            uint256 totalAssets = TokenizedStrategy.totalAssets();
+            return totalAssets >= depositLimit ? 0 : depositLimit - totalAssets;
     }
+    */
 
     /**
      * @dev Optional function for strategist to override that can
@@ -294,9 +292,5 @@ contract TokemakStrategy is BaseStrategy, TradeFactorySwapper {
 
     function _redeemableForShares() private view returns (uint256) {
         return autoPool.convertToAssets(rewarder.balanceOf(address(this)));
-    }
-
-    function _applySlippage(uint256 _amount) private view returns (uint256) {
-        return (_amount * (SLIPPAGE_PRECISION - slippage)) / SLIPPAGE_PRECISION;
     }
 }

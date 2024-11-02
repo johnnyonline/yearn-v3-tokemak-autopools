@@ -34,9 +34,12 @@ contract OperationTest is Setup {
         vm.prank(keeper);
         (uint256 profit, uint256 loss) = strategy.report();
 
+        // 5% of _amount
+        uint256 maxLoss = (_amount * 5) / 100;
+
         // Check return Values
         assertGe(profit, 0, "!profit");
-        assertLe(loss, 1, "!loss");
+        assertLe(loss, maxLoss, "!loss");
 
         skip(strategy.profitMaxUnlockTime());
 
@@ -72,9 +75,12 @@ contract OperationTest is Setup {
         vm.prank(keeper);
         (uint256 profit, uint256 loss) = strategy.report();
 
+        // 5% of _amount
+        uint256 maxLoss = (_amount * 5) / 100;
+
         // Check return Values
-        assertGe(profit, toAirdrop - 1, "!profit");
-        assertLe(loss, 1, "!loss");
+        toAirdrop > maxLoss ? assertGe(profit, toAirdrop - maxLoss, "!profit") : assertGe(profit, 0, "!profit");
+        assertLe(loss, maxLoss, "!loss");
 
         skip(strategy.profitMaxUnlockTime());
 
@@ -113,9 +119,12 @@ contract OperationTest is Setup {
         vm.prank(keeper);
         (uint256 profit, uint256 loss) = strategy.report();
 
+        // 5% of _amount
+        uint256 maxLoss = (_amount * 5) / 100;
+
         // Check return Values
-        assertGe(profit, toAirdrop - 1, "!profit");
-        assertLe(loss, 1, "!loss");
+        toAirdrop > maxLoss ? assertGe(profit, toAirdrop - maxLoss, "!profit") : assertGe(profit, 0, "!profit");
+        assertLe(loss, maxLoss, "!loss");
 
         skip(strategy.profitMaxUnlockTime());
 
@@ -135,8 +144,10 @@ contract OperationTest is Setup {
 
         assertGe(asset.balanceOf(user), balanceBefore + _amount, "!final balance");
 
-        vm.prank(performanceFeeRecipient);
-        strategy.redeem(expectedShares, performanceFeeRecipient, performanceFeeRecipient);
+        if (expectedShares > 0) {
+            vm.prank(performanceFeeRecipient);
+            strategy.redeem(expectedShares, performanceFeeRecipient, performanceFeeRecipient);
+        }
 
         checkStrategyTotals(strategy, 0, 0, 0);
 

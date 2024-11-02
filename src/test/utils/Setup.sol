@@ -102,72 +102,72 @@ contract Setup is ExtendedTest, IEvents {
 
     function _updateOracleInfo() internal {
 
-        address oracleDaddy = 0x8b4334d4812C530574Bd4F2763FcD22dE94A969B;
-        uint32 pricingTimeout = 5 weeks;
+        address _oracleDaddy = 0x8b4334d4812C530574Bd4F2763FcD22dE94A969B;
+        uint32 _pricingTimeout = 5 weeks;
 
         // steth
         {
-            IOracle oracle = IOracle(0x701F115a4d58a44d9e4e437d136DD9fA7b1B6C3f);
-            address asset = 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84;
-            IOracle.OracleInfo memory info = oracle.getOracleInfo(asset);
+            IOracle _oracle = IOracle(0x701F115a4d58a44d9e4e437d136DD9fA7b1B6C3f);
+            address _asset = 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84;
+            IOracle.OracleInfo memory _info = _oracle.getOracleInfo(_asset);
 
-            vm.prank(oracleDaddy);
-            oracle.removeOracleRegistration(asset);
+            vm.prank(_oracleDaddy);
+            _oracle.removeOracleRegistration(_asset);
 
-            vm.prank(oracleDaddy);
-            oracle.registerOracle(asset, info.oracle, info.denomination, pricingTimeout);
+            vm.prank(_oracleDaddy);
+            _oracle.registerOracle(_asset, _info.oracle, _info.denomination, _pricingTimeout);
         }
 
         // ethx
         {
-            IOracle oracle = IOracle(0xe1aDb6967e1dBD5332d499dFA2f42377d1DA5913);
-            address asset = 0xA35b1B31Ce002FBF2058D22F30f95D405200A15b;
-            IOracle.OracleInfo memory info = oracle.getOracleInfo(asset);
+            IOracle _oracle = IOracle(0xe1aDb6967e1dBD5332d499dFA2f42377d1DA5913);
+            address _asset = 0xA35b1B31Ce002FBF2058D22F30f95D405200A15b;
+            IOracle.OracleInfo memory _info = _oracle.getOracleInfo(_asset);
 
-            vm.prank(oracleDaddy);
-            oracle.removeOracleRegistration(asset);
+            vm.prank(_oracleDaddy);
+            _oracle.removeOracleRegistration(_asset);
 
-            vm.prank(oracleDaddy);
-            oracle.registerOracle(asset, info.oracle, info.denomination, pricingTimeout);
+            vm.prank(_oracleDaddy);
+            _oracle.registerOracle(_asset, _info.oracle, _info.denomination, _pricingTimeout);
         }
 
         // reth
         {
-            IOracle oracle = IOracle(0x701F115a4d58a44d9e4e437d136DD9fA7b1B6C3f);
-            address asset = 0xae78736Cd615f374D3085123A210448E74Fc6393;
-            IOracle.OracleInfo memory info = oracle.getOracleInfo(asset);
+            IOracle _oracle = IOracle(0x701F115a4d58a44d9e4e437d136DD9fA7b1B6C3f);
+            address _asset = 0xae78736Cd615f374D3085123A210448E74Fc6393;
+            IOracle.OracleInfo memory _info = _oracle.getOracleInfo(_asset);
 
-            vm.prank(oracleDaddy);
-            oracle.removeOracleRegistration(asset);
+            vm.prank(_oracleDaddy);
+            _oracle.removeOracleRegistration(_asset);
 
-            vm.prank(oracleDaddy);
-            oracle.registerOracle(asset, info.oracle, info.denomination, pricingTimeout);
+            vm.prank(_oracleDaddy);
+            _oracle.registerOracle(_asset, _info.oracle, _info.denomination, _pricingTimeout);
         }
 
         // oseth
         {
-            IOracle oracle = IOracle(0xe1aDb6967e1dBD5332d499dFA2f42377d1DA5913);
-            address asset = 0xf1C9acDc66974dFB6dEcB12aA385b9cD01190E38;
-            IOracle.OracleInfo memory info = oracle.getOracleInfo(asset);
+            IOracle _oracle = IOracle(0xe1aDb6967e1dBD5332d499dFA2f42377d1DA5913);
+            address _asset = 0xf1C9acDc66974dFB6dEcB12aA385b9cD01190E38;
+            IOracle.OracleInfo memory _info = _oracle.getOracleInfo(_asset);
 
-            vm.prank(oracleDaddy);
-            oracle.removeOracleRegistration(asset);
+            vm.prank(_oracleDaddy);
+            _oracle.removeOracleRegistration(_asset);
 
-            vm.prank(oracleDaddy);
-            oracle.registerOracle(asset, info.oracle, info.denomination, pricingTimeout);
+            vm.prank(_oracleDaddy);
+            _oracle.registerOracle(_asset, _info.oracle, _info.denomination, _pricingTimeout);
         }
 
         // apxeth
         {
-            IOracle oracle = IOracle(0xe1aDb6967e1dBD5332d499dFA2f42377d1DA5913);
-            address asset = 0x9Ba021B0a9b958B5E75cE9f6dff97C7eE52cb3E6;
-            IOracle.OracleInfo memory info = oracle.getOracleInfo(asset);
+            IOracle _oracle = IOracle(0xe1aDb6967e1dBD5332d499dFA2f42377d1DA5913);
+            address _asset = 0x9Ba021B0a9b958B5E75cE9f6dff97C7eE52cb3E6;
+            IOracle.OracleInfo memory _info = _oracle.getOracleInfo(_asset);
 
-            vm.prank(oracleDaddy);
-            oracle.removeOracleRegistration(asset);
+            vm.prank(_oracleDaddy);
+            _oracle.removeOracleRegistration(_asset);
 
-            vm.prank(oracleDaddy);
-            oracle.registerOracle(asset, info.oracle, info.denomination, pricingTimeout);
+            vm.prank(_oracleDaddy);
+            _oracle.registerOracle(_asset, _info.oracle, _info.denomination, _pricingTimeout);
         }
     }
 

@@ -28,6 +28,9 @@ contract ShutdownTest is Setup {
         // Make sure we can still withdraw the full amount
         uint256 balanceBefore = asset.balanceOf(user);
 
+        vm.prank(keeper);
+        strategy.report();
+
         // Withdraw all funds
         vm.prank(user);
         strategy.redeem(_amount, user, user);
@@ -62,14 +65,17 @@ contract ShutdownTest is Setup {
         // Make sure we can still withdraw the full amount
         uint256 balanceBefore = asset.balanceOf(user);
 
+        vm.prank(keeper);
+        strategy.report();
+
         // Withdraw all funds
         vm.prank(user);
         strategy.redeem(_amount, user, user);
 
-        // // apply 5% slippage
-        // _amount = (_amount * 95) / 100;
+        // apply 5% slippage
+        _amount = (_amount * 95) / 100;
 
-        // assertGe(asset.balanceOf(user), balanceBefore + _amount, "!final balance");
+        assertGe(asset.balanceOf(user), balanceBefore + _amount, "!final balance");
     }
 
     // TODO: Add tests for any emergency function added.
