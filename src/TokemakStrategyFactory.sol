@@ -11,12 +11,9 @@ import {TokemakStrategy, ERC20} from "./TokemakStrategy.sol";
 
 contract TokemakStrategyFactory {
     event NewStrategy(address indexed strategy, address indexed asset, address indexed autoPool);
+    event AddressesUpdated(address indexed management, address indexed performanceFeeRecipient, address indexed keeper);
 
     address public immutable emergencyAdmin;
-
-    address public immutable lendingPool;
-    address public immutable router;
-    address public immutable base;
 
     address public management;
     address public performanceFeeRecipient;
@@ -26,6 +23,11 @@ contract TokemakStrategyFactory {
     mapping(address => address) public deployments;
 
     constructor(address _management, address _performanceFeeRecipient, address _keeper, address _emergencyAdmin) {
+        require(_management != address(0), "!_management");
+        require(_performanceFeeRecipient != address(0), "!_performanceFeeRecipient");
+        require(_keeper != address(0), "!_keeper");
+        require(_emergencyAdmin != address(0), "!_emergencyAdmin");
+
         management = _management;
         performanceFeeRecipient = _performanceFeeRecipient;
         keeper = _keeper;
@@ -75,17 +77,25 @@ contract TokemakStrategyFactory {
 
         _newStrategy.setEmergencyAdmin(emergencyAdmin);
 
+        // slither-disable-next-line reentrancy-events
         emit NewStrategy(address(_newStrategy), _asset, _autoPool);
 
+        // slither-disable-next-line reentrancy-no-eth
         deployments[_asset] = address(_newStrategy);
         return address(_newStrategy);
     }
 
     function setAddresses(address _management, address _performanceFeeRecipient, address _keeper) external {
         require(msg.sender == management, "!management");
+        require(_management != address(0), "!_management");
+        require(_performanceFeeRecipient != address(0), "!_performanceFeeRecipient");
+        require(_keeper != address(0), "!_keeper");
+
         management = _management;
         performanceFeeRecipient = _performanceFeeRecipient;
         keeper = _keeper;
+
+        emit AddressesUpdated(_management, _performanceFeeRecipient, _keeper);
     }
 
     function isDeployedStrategy(address _strategy) external view returns (bool) {
