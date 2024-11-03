@@ -129,4 +129,6 @@ interface IRewarder {
      * @notice Get the extra rewards array values
      */
     function extraRewards() external view returns (address[] memory);
+
+    function stakingToken() external view returns (address);
 }

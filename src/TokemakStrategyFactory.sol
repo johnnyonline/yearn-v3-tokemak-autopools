@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.18;
 
-import {TokemakStrategy, ERC20} from "./TokemakStrategy.sol";
+import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
+
+import {IRewarder} from "./interfaces/tokemak/IRewarder.sol";
+
 import {IStrategyInterface} from "./interfaces/IStrategyInterface.sol";
+
+import {TokemakStrategy, ERC20} from "./TokemakStrategy.sol";
 
 contract TokemakStrategyFactory {
     event NewStrategy(address indexed strategy, address indexed asset, address indexed autoPool);
@@ -42,20 +47,24 @@ contract TokemakStrategyFactory {
     function newStrategy(
         address _asset,
         address _autoPool,
-        address _rewarder,
-        string calldata _name
+        address _rewarder
     )
         external
         onlyManagement
         returns (address)
     {
-        // @todo - sanity check asset
-        // @todo - sanity check autopool
-        // @todo - sanity check name
+        require(deployments[_asset] == address(0), "deployed");
+        require(IERC4626(_autoPool).asset() == _asset, "!asset");
+        require(IRewarder(_rewarder).stakingToken() == _autoPool, "!rewarder");
 
         // tokenized strategies available setters.
         IStrategyInterface _newStrategy = IStrategyInterface(
-            address(new TokemakStrategy(_asset, _autoPool, _rewarder, _name))
+            address(new TokemakStrategy(
+                _asset,
+                _autoPool,
+                _rewarder,
+                string(abi.encodePacked("Tokemak Strategy: ", IERC4626(_autoPool).symbol()))
+            ))
         );
 
         _newStrategy.setPerformanceFeeRecipient(performanceFeeRecipient);

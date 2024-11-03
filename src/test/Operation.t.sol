@@ -16,6 +16,7 @@ contract OperationTest is Setup {
         assertEq(strategy.management(), management);
         assertEq(strategy.performanceFeeRecipient(), performanceFeeRecipient);
         assertEq(strategy.keeper(), keeper);
+        assertEq(strategy.name(), "Tokemak Strategy: autoETH");
         // TODO: add additional check on strat params
     }
 
@@ -64,8 +65,12 @@ contract OperationTest is Setup {
 
         assertEq(strategy.totalAssets(), _amount, "!totalAssets");
 
+        // We deploy funds only on harvest
+        vm.prank(keeper);
+        strategy.report();
+
         // Earn Interest
-        skip(1 days);
+        vm.roll(block.number + 1);
 
         // TODO: implement logic to simulate earning interest.
         uint256 toAirdrop = (_amount * _profitFactor) / MAX_BPS;
@@ -109,7 +114,7 @@ contract OperationTest is Setup {
         assertEq(strategy.totalAssets(), _amount, "!totalAssets");
 
         // Earn Interest
-        skip(1 days);
+        vm.roll(block.number + 1);
 
         // TODO: implement logic to simulate earning interest.
         uint256 toAirdrop = (_amount * _profitFactor) / MAX_BPS;
@@ -131,7 +136,7 @@ contract OperationTest is Setup {
         // Get the expected fee
         uint256 expectedShares = (profit * 1_000) / MAX_BPS;
 
-        assertEq(strategy.balanceOf(performanceFeeRecipient), expectedShares);
+        assertEq(strategy.balanceOf(performanceFeeRecipient), expectedShares, "!perf");
 
         uint256 balanceBefore = asset.balanceOf(user);
 

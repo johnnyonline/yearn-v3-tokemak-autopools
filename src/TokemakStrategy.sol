@@ -3,10 +3,10 @@ pragma solidity ^0.8.18;
 
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
 import {BaseStrategy, ERC20} from "@tokenized-strategy/BaseStrategy.sol";
-// import {BaseHealthCheck, ERC20} from "@periphery/Bases/HealthCheck/BaseHealthCheck.sol";
 import {TradeFactorySwapper} from "@periphery/swappers/TradeFactorySwapper.sol";
 
 import {IRewarder} from "./interfaces/tokemak/IRewarder.sol";
@@ -89,7 +89,9 @@ contract TokemakStrategy is BaseStrategy, TradeFactorySwapper {
      * @param _amount The amount of 'asset' that the strategy can attempt
      * to deposit in the yield source.
      */
-    function _deployFunds(uint256 _amount) internal override {}
+    function _deployFunds(uint256 _amount) internal override {
+        // NOTE: We deploy funds only on harvest because Tokemak deploys the funds into LPs, so we need to avoid slippage.
+    }
 
     /**
      * @dev Should attempt to free the '_amount' of 'asset'.
@@ -113,13 +115,15 @@ contract TokemakStrategy is BaseStrategy, TradeFactorySwapper {
      * @param _amount, The amount of 'asset' to be freed.
      */
     function _freeFunds(uint256 _amount) internal override {
-        uint256 _shares = Math.min(
-            autoPool.convertToShares(_amount),
-            rewarder.balanceOf(address(this))
-        );
-        if (_shares > 0) {
-            rewarder.withdraw(address(this), _shares, false);
-            autoPool.redeem(_shares, address(this), address(this));
+        if (!_paused()) {
+            uint256 _shares = Math.min(
+                autoPool.convertToShares(_amount),
+                rewarder.balanceOf(address(this))
+            );
+            if (_shares > 0) {
+                rewarder.withdraw(address(this), _shares, false);
+                autoPool.redeem(_shares, address(this), address(this));
+            }
         }
     }
 
@@ -146,22 +150,24 @@ contract TokemakStrategy is BaseStrategy, TradeFactorySwapper {
      * amount of 'asset' the strategy currently holds including idle funds.
      */
     function _harvestAndReport() internal override returns (uint256 _totalAssets) {
-        // @todo - claim rewards etc
-        // @todo - check if not paused
 
-        uint256 _amount = asset.balanceOf(address(this));
-        if (_amount > DUST_THRESHOLD) {
-            rewarder.stake(
-                address(this),
-                autoPool.deposit(_amount, address(this))
-            );
+        _claimRewards();
+
+        if (!TokenizedStrategy.isShutdown() && !_paused()) {
+            uint256 _amount = asset.balanceOf(address(this));
+            if (_amount > DUST_THRESHOLD) {
+                rewarder.stake(
+                    address(this),
+                    autoPool.deposit(_amount, address(this))
+                );
+            }
         }
 
         _totalAssets = asset.balanceOf(address(this)) + _redeemableForShares();
     }
 
     function _claimRewards() internal override {
-        // @todo - claim rewards
+        if (rewarder.earned(address(this)) > 0) rewarder.getReward();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -292,5 +298,9 @@ contract TokemakStrategy is BaseStrategy, TradeFactorySwapper {
 
     function _redeemableForShares() private view returns (uint256) {
         return autoPool.convertToAssets(rewarder.balanceOf(address(this)));
+    }
+
+    function _paused() private view returns (bool) {
+        return Pausable(address(autoPool)).paused();
     }
 }

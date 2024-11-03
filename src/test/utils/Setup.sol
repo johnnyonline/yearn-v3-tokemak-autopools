@@ -175,7 +175,7 @@ contract Setup is ExtendedTest, IEvents {
         // we save the strategy as a IStrategyInterface to give it the needed interface
         vm.prank(management);
         IStrategyInterface _strategy =
-            IStrategyInterface(address(strategyFactory.newStrategy(address(asset), autoPool, rewarder, "Tokenized Strategy")));
+            IStrategyInterface(address(strategyFactory.newStrategy(address(asset), autoPool, rewarder)));
 
         vm.prank(management);
         _strategy.acceptManagement();
